@@ -29,6 +29,6 @@ modelo = models.Sequential(
 modelo.compile(optimizer='adam', loss='sparse_categorical_crossentropy', metrics=['accuracy'])
 modelo.fit(x_treino, y_treino, validation_data= (x_teste, y_teste),epochs=30, batch_size=32)
 
-modelo.save("melhor.modelo.h5")
+modelo.save("libras.h5")
 np.save("classe_gestos", encoder.classes_)
 
