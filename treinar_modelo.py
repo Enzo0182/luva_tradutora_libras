@@ -5,7 +5,7 @@ from sklearn.preprocessing import LabelEncoder
 from normalizacaoDados import Normalizar
 from tensorflow.keras import models, layers, Input
 from tensorflow.keras.utils import to_categorical
-from tensorflow.keras.callbacks import EarlyStopping
+from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint
 
 dados = pd.read_csv('dados/dados.csv')
 
@@ -22,7 +22,7 @@ y = l.fit_transform(y)
 np.save('dados/gestos', l.classes_)
 print(dados.info())
 
-x_treino_raw, x_teste_raw, y_treino_raw, y_teste_raw = train_test_split(x, y, test_size=0.2, shuffle=False)
+x_treino_raw, x_teste_raw, y_treino_raw, y_teste_raw = train_test_split(x, y, test_size=0.2, shuffle=True, stratify=y)
 
 norm = Normalizar()
 x_treino_norm = norm.fit_transform(x_treino_raw)
@@ -57,9 +57,12 @@ modelo = models.Sequential([
 
 modelo.summary()
 early_stop = EarlyStopping(monitor='val_loss', patience=5, restore_best_weights=True)
+checkpoint = ModelCheckpoint('libras.h5', monitor='val_loss', save_best_only=True)
 modelo.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
-modelo.fit(x_treino, y_treino_ohe,validation_data=(x_teste, y_teste_ohe), epochs=50, batch_size=16, callbacks=[early_stop])
+modelo.fit(x_treino, y_treino_ohe,validation_data=(x_teste, y_teste_ohe), epochs=100, batch_size=16, callbacks=[checkpoint,early_stop])
 
 modelo.save('libras.h5')
 print("salvo")
+
+
 

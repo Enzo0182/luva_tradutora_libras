@@ -24,8 +24,8 @@ todas_colunas =  [
 while True:
     try:
         linha = porta.readline().decode().strip()
+        print(linha)
         dados = list(map(float,linha.split(',')))
-        print(dados)
         if len(dados) < 14:
             continue
         dados_filtrados = []
