@@ -2,7 +2,7 @@ import time
 import csv
 import serial
 import os
-import keyboard
+
 
 porta = serial.Serial("COM8", 115200)
 NOME_ARQUIVO = "dados/dados.csv"

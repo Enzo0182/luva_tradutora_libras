@@ -3,6 +3,7 @@ import tensorflow as tf
 import numpy as np
 from collections import deque
 import serial as srl
+import pyttsx3
 
 modelo = tf.keras.models.load_model('libras.h5')
 gestos = np.load('dados/gestos.npy', allow_pickle=True)
@@ -21,11 +22,13 @@ todas_colunas =  [
     'sensor_1L', 'sensor_2L', 'sensor_3L', 'sensor_4L', 'sensor_5L',
     'sensor_1R', 'sensor_2R', 'sensor_3R', 'sensor_4R','sensor_5R','acel1','giro1','acel2','giro2'
 ]
+
 while True:
     try:
         linha = porta.readline().decode().strip()
         print(linha)
         dados = list(map(float,linha.split(',')))
+        print(dados)
         if len(dados) < 14:
             continue
         dados_filtrados = []
@@ -44,7 +47,7 @@ while True:
             gesto_previsto = gestos[indice_gesto]
             historico_previsoes.append(gesto_previsto)
             gestos_final = max(set(historico_previsoes), key=historico_previsoes.count)
-            print(f'{gestos_final}: {gesto_previsto}')
+            print(f'{gestos_final}')
 
 
     except KeyboardInterrupt:
