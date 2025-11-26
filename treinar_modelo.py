@@ -101,10 +101,10 @@ colunas_usadas = [
 
 # --- 2. APLICAR O FILTRO ANTES DE TUDO ---
 # Importante: Ajuste 'fs' para a frequência real do seu ESP32 (ex: 100ms delay = 10Hz, 20ms = 50Hz)
-fs_estimado = 5
+fs_estimado = 50
 print("Aplicando filtro Butterworth nos dados brutos...")
 for col in colunas_usadas:
-    dados[col] = aplicar_filtro_butterworth(dados[col], cutoff=2, fs=fs_estimado)
+    dados[col] = aplicar_filtro_butterworth(dados[col], cutoff=3, fs=fs_estimado)
 
 x = dados[colunas_usadas].values
 y = dados['gesto'].values
