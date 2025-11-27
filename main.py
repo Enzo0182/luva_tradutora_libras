@@ -25,20 +25,28 @@ def aplicar_filtro_janela(data):
         return data
 
 
-try:
-    engine = pyttsx3.init()
-    engine.setProperty('rate', 150)
-except:
-    engine = None
-
-
 def falar(texto):
+    """
+    Cria uma nova instância do motor de voz para cada fala.
+    Isso evita o travamento do pyttsx3 em threads.
+    """
     try:
-        if engine:
-            engine.say(texto)
-            engine.runAndWait()
-    except:
-        pass
+        # Inicializa um NOVO motor apenas para essa fala
+        engine_local = pyttsx3.init()
+
+        # Configurações (pode ajustar a velocidade se quiser)
+        engine_local.setProperty('rate', 150)
+
+        # Fala
+        engine_local.say(texto)
+        engine_local.runAndWait()
+
+        # Importante: Para o loop do motor
+        engine_local.stop()
+        del engine_local  # Limpa da memória
+
+    except Exception as e:
+        print(f"Erro ao tentar falar: {e}")
 
 
 # --- CARREGAR MODELO E SCALER ---
@@ -122,7 +130,7 @@ while True:
                 indice = np.argmax(previsao)
                 gesto_previsto = gestos[indice]
                 confianca = np.max(previsao)
-                print(f"Gesto: {gesto_previsto} | Conf: {confianca:.2f} | Var: {variacao:.2f}")
+                #print(f"Gesto: {gesto_previsto} | Conf: {confianca:.2f} | Var: {variacao:.2f}")
 
             # Lógica de Falar
             if confianca > 0.85:
