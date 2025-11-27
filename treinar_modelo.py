@@ -1,171 +1,108 @@
-# import pandas as pd
-# import numpy as np
-# from sklearn.model_selection import train_test_split
-# from sklearn.preprocessing import LabelEncoder
-# from normalizacaoDados import Normalizar
-# from tensorflow.keras import models, layers, Input
-# from tensorflow.keras.utils import to_categorical
-# from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint
-#
-# dados = pd.read_csv('dados/dados.csv')
-#
-# colunas_usadas = [
-#           "sensor_1L", "sensor_3L", "sensor_4L","sensor_5L",
-#           "sensor_1R", "sensor_2R", "sensor_3R", "sensor_4R", "sensor_5R","acel1","giro1","acel2","giro2"
-# ]
-#
-# x = dados[colunas_usadas].values
-# y = dados['gesto'].values
-# l = LabelEncoder()
-# y = l.fit_transform(y)
-#
-# np.save('dados/gestos', l.classes_)
-# print(dados.info())
-#
-# x_treino_raw, x_teste_raw, y_treino_raw, y_teste_raw = train_test_split(x, y, test_size=0.2, shuffle=True, stratify=y)
-#
-# norm = Normalizar()
-# x_treino_norm = norm.fit_transform(x_treino_raw)
-# x_teste_norm = norm.transform(x_teste_raw)
-#
-# print(f"DEBUG: Shape do x_treino_norm (antes de janelar): {x_treino_norm.shape}")
-#
-# x_treino, y_treino = norm.criar_janelas(x_treino_norm, y_treino_raw)
-# x_teste, y_teste = norm.criar_janelas(x_teste_norm, y_teste_raw)
-#
-# print(f"Formato X_treino final (janelas): {x_treino.shape}")
-# print(f"Formato Y_treino final (janelas): {y_treino.shape}")
-#
-# num_classes = len(np.unique(y_treino))
-# shape_entrada = (x_treino.shape[1], x_treino.shape[2])
-#
-# y_treino_ohe = to_categorical(y_treino, num_classes=num_classes)
-# y_teste_ohe = to_categorical(y_teste, num_classes=num_classes)
-#
-# modelo = models.Sequential([
-#     Input(shape=shape_entrada),
-#     layers.LSTM(64, return_sequences=True),
-#     layers.Dropout(0.5),
-#     layers.LSTM(64 , return_sequences=True),
-#     layers.Dropout(0.5),
-#     layers.LSTM(64),
-#     layers.Dropout(0.5),
-#     layers.Dense(64, activation='relu'),
-#     layers.Dropout(0.5),
-#     layers.Dense(num_classes, activation='softmax'),
-# ])
-#
-# modelo.summary()
-# early_stop = EarlyStopping(monitor='val_loss', patience=5, restore_best_weights=True)
-# checkpoint = ModelCheckpoint('libras.h5', monitor='val_loss', save_best_only=True)
-# modelo.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
-# modelo.fit(x_treino, y_treino_ohe,validation_data=(x_teste, y_teste_ohe), epochs=70, batch_size=16, callbacks=[checkpoint,early_stop])
-#
-# print("salvo")
-
-
 import pandas as pd
 import numpy as np
+import joblib
 from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import LabelEncoder
-from normalizacaoDados import Normalizar
+from sklearn.preprocessing import LabelEncoder, MinMaxScaler
 from tensorflow.keras import models, layers, Input
 from tensorflow.keras.utils import to_categorical
 from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint
 from scipy.signal import butter, filtfilt
+from sklearn.utils import class_weight
 
-# --- 1. FUNÇÃO DE FILTRO ---
-def aplicar_filtro_butterworth(data, cutoff=3, fs=20, order=4):
-    """
-    data: array numpy ou coluna do pandas
-    cutoff: frequência de corte (3Hz é bom para gestos humanos)
-    fs: frequência de amostragem (quantas leituras seu ESP32 faz por segundo)
-    order: ordem do filtro (suavidade)
-    """
+# --- CONFIGURAÇÃO ---
+DELAY_NO_ARDUINO = 30  # Ajustado conforme seu log (33Hz)
+FS_REAL = 1000 / DELAY_NO_ARDUINO
+CUTOFF_FILTRO = 3.0
+
+def aplicar_filtro_butterworth(data, cutoff, fs, order=4):
     nyq = 0.5 * fs
     normal_cutoff = cutoff / nyq
-    # Cria o filtro passa-baixa (low-pass)
+    if normal_cutoff >= 1: normal_cutoff = 0.99
     b, a = butter(order, normal_cutoff, btype='low', analog=False)
-    # Aplica o filtro (filtfilt aplica frente e trás para não ter atraso de fase)
     y = filtfilt(b, a, data, axis=0)
     return y
 
 # --- CARREGAR DADOS ---
 dados = pd.read_csv('dados/dados.csv')
 
+# Feature Engineering
+dados['acel_total'] = np.sqrt(dados['acel1']**2 + dados['giro1']**2 + dados['acel2']**2 + dados['giro2']**2)
+
 colunas_usadas = [
-          "sensor_1L", "sensor_3L", "sensor_4L","sensor_5L",
-          "sensor_1R", "sensor_2R", "sensor_3R", "sensor_4R", "sensor_5R",
-          "acel1","giro1","acel2","giro2"
+    "sensor_1L", "sensor_3L", "sensor_4L","sensor_5L",
+    "sensor_1R", "sensor_2R", "sensor_3R", "sensor_4R", "sensor_5R",
+    "acel1","giro1","acel2","giro2",
+    "acel_total"
 ]
 
-# --- 2. APLICAR O FILTRO ANTES DE TUDO ---
-# Importante: Ajuste 'fs' para a frequência real do seu ESP32 (ex: 100ms delay = 10Hz, 20ms = 50Hz)
-fs_estimado = 50
-print("Aplicando filtro Butterworth nos dados brutos...")
+print("Filtrando...")
 for col in colunas_usadas:
-    dados[col] = aplicar_filtro_butterworth(dados[col], cutoff=3, fs=fs_estimado)
+    dados[col] = aplicar_filtro_butterworth(dados[col].values, cutoff=CUTOFF_FILTRO, fs=FS_REAL)
 
 x = dados[colunas_usadas].values
 y = dados['gesto'].values
 
-# Codificar Labels
+# Labels
 l = LabelEncoder()
 y_encoded = l.fit_transform(y)
-np.save('dados/gestos', l.classes_)
+np.save('dados/gestos.npy', l.classes_) # Salva nomes das classes
 
-# Normalizar (Ainda com os dados contínuos)
-norm = Normalizar()
-x_norm = norm.fit_transform(x)
+# --- NORMALIZAÇÃO CORRETA (SALVANDO O SCALER) ---
+scaler = MinMaxScaler(feature_range=(0, 1))
+x_norm = scaler.fit_transform(x)
 
-# --- 3. CRIAR JANELAS (CORREÇÃO CRÍTICA) ---
-# As janelas devem ser criadas ANTES de separar Treino/Teste e ANTES de embaralhar
-print("Criando janelas temporais...")
-# Nota: Assumindo que norm.criar_janelas aceita (X, y) e retorna (X_janelado, y_janelado)
-# Se sua função criar_janelas não lida com a transição de gestos (ex: misturar final de 'Oi' com começo de 'Repouso'),
-# o ideal é janelar agrupando pelo label ou garantindo continuidade.
-x_janelas, y_janelas = norm.criar_janelas(x_norm, y_encoded)
+# SALVAR O SCALER PARA O MAIN.PY
+joblib.dump(scaler, 'dados/scaler.pkl')
+print("Scaler salvo em dados/scaler.pkl")
 
-print(f"Shape após janelamento: {x_janelas.shape}")
+# --- JANELAMENTO ---
+# (Mantendo sua lógica simples de reshape para LSTM,
+# mas idealmente use uma função de sliding window aqui)
+# Se sua função 'norm.criar_janelas' apenas faz o reshape, ok.
+# Vou simular um reshape simples caso você não tenha a lib externa:
+WINDOW_SIZE = 10
+step = 1
+segments = []
+labels = []
 
-# --- 4. SPLIT (AGORA PODEMOS EMBARALHAR AS JANELAS) ---
+for i in range(0, len(x_norm) - WINDOW_SIZE, step):
+    xs = x_norm[i: i + WINDOW_SIZE]
+    ys = y_encoded[i + WINDOW_SIZE - 1] # Label do final da janela
+    segments.append(xs)
+    labels.append(ys)
+
+x_janelas = np.array(segments)
+y_janelas = np.array(labels)
+
+print(f"Shape: {x_janelas.shape}")
+
 x_treino, x_teste, y_treino, y_teste = train_test_split(
-    x_janelas, y_janelas,
-    test_size=0.2,
-    shuffle=True,  # Agora sim pode dar shuffle, pois as janelas já estão formadas
-    stratify=y_janelas
+    x_janelas, y_janelas, test_size=0.2, shuffle=True, stratify=y_janelas
 )
 
 num_classes = len(np.unique(y_janelas))
-shape_entrada = (x_treino.shape[1], x_treino.shape[2])
-
 y_treino_ohe = to_categorical(y_treino, num_classes=num_classes)
 y_teste_ohe = to_categorical(y_teste, num_classes=num_classes)
 
-# --- MODELO ---
+# Pesos
+pesos = class_weight.compute_class_weight(
+    class_weight='balanced', classes=np.unique(y_treino), y=y_treino
+)
+pesos_dict = dict(enumerate(pesos))
+
+# Modelo
 modelo = models.Sequential([
-    Input(shape=shape_entrada),
-    # Aumentei um pouco a complexidade ou ajustei dropout se necessário
+    Input(shape=(x_treino.shape[1], x_treino.shape[2])),
     layers.LSTM(64, return_sequences=True),
-    layers.Dropout(0.3),
-    layers.LSTM(64, return_sequences=False), # Última LSTM não precisa de return_sequences se for para Dense direto
-    layers.Dropout(0.3),
-    layers.Dense(64, activation='relu'),
-    layers.Dropout(0.3),
+    layers.Dropout(0.4),
+    layers.LSTM(32, return_sequences=False),
+    layers.Dropout(0.4),
+    layers.Dense(32, activation='relu'),
     layers.Dense(num_classes, activation='softmax'),
 ])
 
-modelo.summary()
-
-early_stop = EarlyStopping(monitor='val_loss', patience=10, restore_best_weights=True)
-checkpoint = ModelCheckpoint('libras.h5', monitor='val_loss', save_best_only=True)
-
 modelo.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
 
-history = modelo.fit(
-    x_treino, y_treino_ohe,
-    validation_data=(x_teste, y_teste_ohe),
-    epochs=70,
-    batch_size=32, # Batch size 32 costuma ser mais estável que 16
-    callbacks=[checkpoint, early_stop]
-)
+checkpoint = ModelCheckpoint('libras.h5', monitor='val_loss', save_best_only=True)
+modelo.fit(x_treino, y_treino_ohe, validation_data=(x_teste, y_teste_ohe),
+           epochs=120, batch_size=32, callbacks=[checkpoint], class_weight=pesos_dict)

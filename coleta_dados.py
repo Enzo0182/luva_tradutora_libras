@@ -10,7 +10,7 @@ arquivo_existe = os.path.exists(NOME_ARQUIVO) and os.path.getsize(NOME_ARQUIVO) 
 arquivo = open(NOME_ARQUIVO, "a", newline='')
 writer = csv.writer(arquivo)
 header = ["sensor_1R", "sensor_2R", "sensor_3R", "sensor_4R", "sensor_5R",
-       "sensor_1L", "sensor_2L", "sensor_3L", "sensor_4L", "sensor_5L","acel1",
+       "sensor_1L", "sensor_3L", "sensor_4L", "sensor_5L","acel1",
          "giro1","acel2","giro2","gesto"]
 
 if not arquivo_existe:
@@ -33,7 +33,7 @@ try:
         dados = list(map(float, linha.split(',')))
 
         # Se a leitura veio incompleta, ignora
-        if len(dados) < 12:  # 12 sensores no total (6L + 6R)
+        if len(dados) < 13:  # 12 sensores no total (6L + 6R)
             continue
 
         # Calcula o tempo desde o início (em ms)

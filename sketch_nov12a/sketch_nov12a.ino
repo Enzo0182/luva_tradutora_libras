@@ -111,5 +111,5 @@ void loop() {
     Serial.println("Erro ao ler MPU #2!");
   }
 
-  delay(200); // Aguarda 200ms antes da proxima leitura
+  delay(50); // Aguarda 200ms antes da proxima leitura
 }
