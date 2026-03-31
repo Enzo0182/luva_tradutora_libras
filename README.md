@@ -18,7 +18,7 @@ Desenvolvido como projeto acadêmico no curso de Análise e Desenvolvimento de S
 
 O projeto integra hardware e software para criar uma solução completa:
 
-    Microcontrolador: [Arduino / ESP32 / Raspberry Pi Pico] (Ajuste conforme o que estiverem usando)
+    Microcontrolador: [ESP32]
 
     Sensores: Sensores de Flexão (Flex Sensors), Acelerômetros e Giroscópios (MPU6050).
 
@@ -53,11 +53,9 @@ O projeto integra hardware e software para criar uma solução completa:
 
 Este projeto é fruto do trabalho colaborativo de um grupo de 3 alunos da FAMETRO:
 
-    ![Enzo Souza](https://github.com/Enzo0182)
-    ![Eliane Braga](https://github.com/elianebfrota)
-    ![Ryan Guedes](https://github.com/ryanguedis)
+    Enzo Souza:https://github.com/Enzo0182
+    Eliane Braga: https://github.com/elianebfrota
+    Ryan Guedes: https://github.com/ryanguedis
     
-
-Este projeto está sob a licença MIT. Veja o arquivo LICENSE para detalhes.
 
     Nota: Este projeto é um protótipo em desenvolvimento para fins acadêmicos.
